@@ -1,17 +1,18 @@
 # GameToken Smart Contract
 
 ## Simple Overview
-This project implements a custom ERC20 token called `GameToken` using the OpenZeppelin library. The smart contract includes functionalities to mint new tokens, burn existing tokens, and transfer tokens, all while enforcing ownership rules.
+This project implements a custom ERC20 token called `GameToken` using the OpenZeppelin library. The smart contract includes functionalities to register players, mint new tokens for registered players, burn tokens from registered players, and transfer tokens between registered players, all while enforcing ownership rules.
 
 ## Description
-GameToken is an ERC20-compliant smart contract developed in Solidity. It leverages OpenZeppelin's robust libraries to ensure security and reliability. The contract features public functions for minting (`recharge`), burning (`redeem`), and transferring tokens, with specific permissions enforced by the `onlyOwner` modifier.
+GameToken is an ERC20-compliant smart contract developed in Solidity. It leverages OpenZeppelin's robust libraries to ensure security and reliability. The contract features public functions for registering players, minting tokens, burning tokens, transferring tokens, and querying player token balances, with specific permissions enforced by the `onlyOwner` modifier.
 
 ### Key Features
 - **ERC20 Compliance**: Inherits standard ERC20 functionality from OpenZeppelin.
 - **Ownership Management**: Utilizes OpenZeppelin's `Ownable` contract to manage contract ownership.
+- **Player Registration**: Allows the contract owner to register players.
 - **Decimal Customization**: Overrides the `decimals` function to set the token decimals to zero.
-- **Minting and Burning**: Allows the owner to mint (`recharge`) new tokens and any holder to burn (`redeem`) their tokens.
-- **Custom Transfer Function**: Overrides `transferFrom` to use the inherited function from OpenZeppelin.
+- **Minting and Burning**: Allows the owner to mint tokens for registered players and any registered player to burn their tokens.
+- **Transfer Function**: Allows registered players to transfer tokens to other registered players.
 
 ### Key Functions and Statements
 - **`require`**: Ensures conditions are met before executing certain functions, reverting the transaction if conditions are not met.
@@ -23,11 +24,11 @@ GameToken is an ERC20-compliant smart contract developed in Solidity. It leverag
 1. **Download the Project**
    - Clone the repository from GitHub:
      ```sh
-     git clone https://github.com/NICxKMS/ETH_AVX_INTER_MOD_3.git
+     git clone https://github.com/NICxKMS/ETH_AVAX_INTER_MOD_3.git
      ```
    - Navigate to the project directory:
      ```sh
-     cd ETH_AVX_INTER_MOD_3
+     cd ETH_AVAX_INTER_MOD_3
      ```
 
 2. **Open Remix IDE**
@@ -41,14 +42,27 @@ GameToken is an ERC20-compliant smart contract developed in Solidity. It leverag
      pragma solidity ^0.8.20;
 
      import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+     import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
      import "@openzeppelin/contracts/access/Ownable.sol";
 
-      // Author : Nikhil
-     
+     // Functionality
+     // Only contract owner should be able to mint tokens
+     // Any user can transfer tokens
+     // Any user can burn tokens
+
+     // Author : Nikhil
+
      contract GameToken is ERC20, Ownable {
+
+         struct Player {
+             bool registered;
+         }
+
+         mapping(address => Player) public players;
 
          constructor()
              ERC20("Nikhil", "NK")
+             Ownable(msg.sender)
          {
              transferOwnership(msg.sender);
          }
@@ -57,13 +71,34 @@ GameToken is an ERC20-compliant smart contract developed in Solidity. It leverag
              return 0;
          }
 
-         function recharge(address to, uint256 amount) public onlyOwner {
+         function registerPlayer(address player) public onlyOwner {
+             require(!players[player].registered, "Player is already registered");
+             players[player].registered = true;
+         }
+
+         function mint(address to, uint256 amount) public onlyOwner {
+             require(players[to].registered, "Player is not registered");
              _mint(to, amount);
          }
 
-         function redeem(address from, uint256 amount) public {
-             require(amount <= balanceOf(from), "Insufficient balance to redeem");
+         function burn(address from, uint256 amount) public {
+             require(players[from].registered, "Player is not registered");
+             require(amount <= balanceOf(from), "Insufficient balance to burn");
+
              _burn(from, amount);
+         }
+
+         function transferPoints(address from, address to, uint256 amount) public {
+             require(players[from].registered, "Sender is not registered");
+             require(players[to].registered, "Receiver is not registered");
+             require(amount <= balanceOf(from), "Insufficient balance to transfer");
+
+             _transfer(from, to, amount);
+         }
+
+         function getPlayerPoints(address player) public view returns (uint256) {
+             require(players[player].registered, "Player is not registered");
+             return balanceOf(player);
          }
 
          function transferFrom(address from, address to, uint256 amount) public override returns (bool) {
@@ -87,22 +122,28 @@ GameToken is an ERC20-compliant smart contract developed in Solidity. It leverag
 
 3. **Interact with the Contract**
    - After deploying, the contract will appear under `Deployed Contracts`.
-   - To recharge tokens:
-     - Input the address and the amount of tokens to mint.
-     - Click the `recharge` button.
-   - To redeem tokens:
-     - Input the address and the amount of tokens to burn.
-     - Click the `redeem` button.
+   - To register a player:
+     - Input the player's address.
+     - Click the `registerPlayer` button.
+   - To mint tokens:
+     - Input the player's address and the amount of tokens to mint.
+     - Click the `mint` button.
+   - To burn tokens:
+     - Input the player's address and the amount of tokens to burn.
+     - Click the `burn` button.
    - To transfer tokens:
      - Input the sender's address, receiver's address, and the amount of tokens to transfer.
-     - Click the `transferFrom` button.
+     - Click the `transferPoints` button.
+   - To get player points:
+     - Input the player's address.
+     - Click the `getPlayerPoints` button.
 
 ## Help
 
 ### Common Issues
 - **Compilation Errors**: Ensure the Solidity version specified matches the version set in the Remix compiler.
 - **Deployment Errors**: Make sure the selected environment is correct and the contract is compiled without errors.
-- **Interaction Errors**: Ensure the address and value inputs are valid and that sufficient balance exists for redeeming tokens.
+- **Interaction Errors**: Ensure the address and value inputs are valid, that players are registered, and that sufficient balance exists for burning or transferring tokens.
 
 For detailed debugging and assistance, refer to the Remix documentation or community forums.
 
